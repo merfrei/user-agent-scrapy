@@ -4,10 +4,12 @@ Scrapy Downloader Middlewares
 
 import logging
 import random
+
 from scrapy import signals
-from user_agent_scrapy.api import UserAgentAPI
 from scrapy.downloadermiddlewares.useragent import \
     UserAgentMiddleware as ScrapyUserAgentMiddleware
+
+from user_agent_scrapy.api import UserAgentAPI
 
 
 logger = logging.getLogger(__name__)
@@ -33,13 +35,12 @@ class UserAgentScrapyMiddleware:
     '''Main User Agent Service Middleware'''
 
     def __init__(self):
-        self.use_middleware = set()
         self.user_agents = {}
         self.api_client = None
 
     @classmethod
     def from_crawler(cls, crawler):
-        middleware = cls(crawler)
+        middleware = cls()
         api_config = {}
         middleware.set_api_config_from_settings(crawler.settings, api_config)
         middleware.api_client = UserAgentAPI(**api_config)
@@ -55,13 +56,12 @@ class UserAgentScrapyMiddleware:
     def spider_opened(self, spider):
         '''When the spider is opened check if the middleware is enabled and load the agents'''
         if self.is_enabled(spider):
-            self.use_agents.add(spider.name)
             self.load_agents(spider)
 
     def spider_closed(self, spider):
         '''When the spiders is closed...'''
-        if spider.name in self.use_agents:
-            self.use_agents.remove(spider.name)
+        if spider.name in self.user_agents:
+            del self.user_agents[spider.name]
 
     def process_request(self, request, spider):
         '''Check if the middleware is enabled and if is there any agent available
@@ -74,7 +74,8 @@ class UserAgentScrapyMiddleware:
                 request.headers['User-Agent'] = current_agent
                 logger.info('Request to "%s" using agent "%s"', request.url, current_agent)
 
-    def is_enabled(self, spider, request=None):
+    @staticmethod
+    def is_enabled(spider, request=None):
         '''Check if the middleware is enabled'''
         enabled = getattr(spider, 'ua_enabled', False)
         keep_session = False
